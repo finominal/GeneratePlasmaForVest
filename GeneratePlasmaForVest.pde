@@ -1,23 +1,25 @@
 import java.io.File;
 
 PrintWriter myFile;
-String fileName = dataPath("/users/finbot/desktop/YellowShadow.led");
+String fileName = "C:\\users\\Computer\\Desktop\\FullColorPlasmaMorph20.led";
 
 int LEDCOUNT = 470;
-int generateFrames = 300;
+int generateFrames = 50000;
 byte[] renderedDataFile = new byte[LEDCOUNT*3*generateFrames];
 
 int frameNo = 0;
 int ledFactor = 4;
 float shade;
-int size = 10; //lower=smaller
+int size = 13; //lower=smaller
 float sinShadePiRed, sinShadePiGreen, sinShadePiBlue;
 int r,g,b;
 float minShade = -1.3;
 float maxShade =1.3;
-int brightness = 50;
+int brightness = 100;
+
 float movement;
-float movementFactor = 0.1;
+float movementFactor = 0.053;
+
 float cx, cy;
 int worldWidth = 40;
 int worldHeight = 20;
@@ -25,14 +27,16 @@ float dist;
 
 boolean dev = false;
 boolean display = true;
+boolean realtimeDisplay = false; //true is smaller
 
 LED[] leds = new LED[LEDCOUNT];
 
 void setup() 
 {
-  size(35*ledFactor, 20*ledFactor);
+  //frameRate(25);
+  size(200 * ledFactor, 120 * ledFactor);
   background(0);
-  loadPixels();
+  if(realtimeDisplay) loadPixels();
  
   PopulateLedArray();
   
@@ -40,12 +44,13 @@ void setup()
 }
 
 void draw() {
-  
+   background(0);
   if( frameNo<generateFrames)
   {
     println(frameNo);
     Plasma();
     frameNo++;
+    text(10,10,frameRate);
   }
   else
   {
@@ -55,6 +60,7 @@ void draw() {
     println(millis());
     exit();
   }
+  
 }
 
 
@@ -88,44 +94,46 @@ void Plasma()
       print(" sc="); print(SinCircle(c.x,c.y,size));
      }
      
+     //get the three sin waves and combine the results
     shade = (
                SinVerticle(c.x,c.y,size) //42ms
               +SinRotating(c.x,c.y,size)  //91ms
-              +SinCircle(c.x,c.y, size)
-            )/3; //120ms
+              +SinCircle(c.x,c.y, size)//120ms
+            )/3; 
              //250ms
              
     if(dev) {print(" shade="); print(shade);}
     
     //Optimization Mathematics
     sinShadePiRed = sin(shade*PI); //21ms
-    sinShadePiGreen = sin(shade*PI+2*PI/3); //36ms
-    sinShadePiBlue = sin(shade*PI+4*PI/3); //42ms
+    sinShadePiGreen = sin(shade*PI+2); //36ms
+    sinShadePiBlue = sin(shade*PI+4); //42ms
     
     SelfCorrectMapping();
     
-     if(dev)
-     {
+    if(dev)
+    {
       print(" sinShadePiRed="); print(sinShadePiRed);
       print(" sinShadePiBlue="); print(sinShadePiRed);
-     }
+    }
      
-      r = (int)map( sinShadePiRed, minShade, maxShade, 0, brightness);//2ms
-      g = (int)map( sinShadePiGreen, minShade, maxShade, 0, brightness);//2ms
+    r = (int)map( sinShadePiRed, minShade, maxShade, 0, brightness);//2ms
+    //g = (int)map( sinShadePiGreen, minShade, maxShade, 0, brightness);//2ms
     //b = (int)map( sinShadePiBlue, minShade, maxShade, 0, brightness);//2ms
      
-     if(dev)
-     {
+    if(dev)
+    {
       print(" r="); print(r);
       print(" b="); print(b);
-     }
+    }
      
     //r = map( sin(shade*PI)*100, minShade, maxShade, 0, brightness);
-    //g = (int)map( sin(shade*PI+2*(sin(movement)/2)), minShade, maxShade, 0, brightness);
-    //b = (int)map( sin(shade*PI+4*PI*sin(movement/7)), minShade, maxShade, 0, brightness);
+    g = (int)map( sin(shade*PI+2*(sin(movement)/2)), minShade, maxShade, 0, brightness);
+    b = (int)map( sin(shade*PI+4*PI*sin(movement/7)), minShade, maxShade, 0, brightness);
      
     WriteLedDataToFileBuffer(r,g,b,i); 
-    DisplayPixel(r,g,b,c);
+    if(realtimeDisplay) {DisplayPixel(r,g,b,c);}
+    else {DisplayPixel2(r,g,b,c);}
     
     }
   
@@ -140,8 +148,6 @@ void Plasma()
       println(millis());
     }
    
-
-    
 }
 
 float SinVerticle(float x, float y, float s)
@@ -156,7 +162,7 @@ float SinRotating(float x, float y, float s)
  
 float SinCircle(float x, float y, float s)
 {
-  cx = worldWidth * sin(movement/10)*ledFactor;
+  cx = worldWidth * sin(movement/5)*ledFactor;
   cy = worldHeight * cos(movement/10)*ledFactor;
   //cx = worldWidth / 2.5 * ledFactor;
   //cy = worldHeight / 2.5 * ledFactor;
@@ -177,6 +183,18 @@ void DisplayPixel(int r, int g, int b, LED c)
     pixels[pixelidx-1+width] = col;
     pixels[pixelidx+width] = col;
 }
+
+void DisplayPixel2(int r, int g, int b, LED c)
+{
+    //position the pixels so it looks good on the screen
+    int x = (c.x * 6)+20;
+    int y = height - (c.y * 6)-20;
+    
+    int col = color(r*10,g*10,b*10);  //time ten to make it visiable on the screen
+    fill(color(r*3,g*3,b*3));
+    ellipse(x,y,20,20);
+}
+
 
 void WriteLedDataToFileBuffer(int r,  int  g,  int  b, int idx)
 { 
@@ -202,7 +220,7 @@ void del(int wait)
 
 void SelfCorrectMapping()
 {
-  //self correct mapping values to use maximum led resolution
+  // tune mapping values to ensure maximum led resolution
     if(sinShadePiRed < minShade) minShade = sinShadePiRed;
     if(sinShadePiRed > maxShade) maxShade = sinShadePiRed;
     if(sinShadePiGreen < minShade) minShade = sinShadePiGreen;
